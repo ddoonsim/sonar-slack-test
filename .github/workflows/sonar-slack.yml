@@ -62,6 +62,12 @@ jobs:
     name: 🔍 SonarQube Analysis (Java 11)
     runs-on: ubuntu-latest
     needs: build
+    outputs:
+      gate_status: ${{  steps.quality_gate.outputs.status  }}
+      coverage:    ${{ steps.metrics.outputs.coverage }}
+      bugs:        ${{ steps.metrics.outputs.bugs }}
+      smells:      ${{ steps.metrics.outputs.smells }}
+      dup:         ${{ steps.metrics.outputs.dup }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -120,11 +126,11 @@ jobs:
       - name: Build Slack Payload
         id: payload
         run: |
-          GATE=${{ needs.sonar.outputs.quality_gate.outputs.status }}
-          COVER=${{ needs.sonar.outputs.metrics.outputs.coverage }}
-          BUGS=${{ needs.sonar.outputs.metrics.outputs.bugs }}
-          SMELLS=${{ needs.sonar.outputs.metrics.outputs.smells }}
-          DUP=${{ needs.sonar.outputs.metrics.outputs.dup }}
+          GATE=${{ needs.sonar.outputs.gate_status }}
+          COVER=${{ needs.sonar.outputs.coverage }}
+          BUGS=${{ needs.sonar.outputs.bugs }}
+          SMELLS=${{ needs.sonar.outputs.smells }}
+          DUP=${{ needs.sonar.outputs.dup }}
           COLOR="#36a64f"
           [ "$GATE" != "OK" ] && COLOR="#ff0000"
           cat > payload.json <<EOF

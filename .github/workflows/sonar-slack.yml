@@ -80,12 +80,14 @@ jobs:
       - name: Run SonarQube Scanner (skip toolchains & RAT)
         run: |
           chmod +x mvnw
-          ./mvnw sonar:sonar \
+          ./mvnw clean verify sonar:sonar \
             -Dtoolchains.skip=true \
             -Drat.skip=true \
             -Dsonar.projectKey=${{ env.SONAR_PROJECT_KEY }} \
             -Dsonar.host.url=${{ env.SONAR_HOST_URL }} \
-            -Dsonar.login=${{ env.SONAR_TOKEN }}
+            -Dsonar.login=${{ env.SONAR_TOKEN }} \
+            -Dsonar.java.binaries=target/classes \
+            -Dsonar.exclusions=**/*.java
 
       - name: Get Quality Gate Status
         id: quality_gate

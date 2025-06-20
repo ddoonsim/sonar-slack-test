@@ -1,0 +1,114 @@
+name: SonarQube Analysis & Slack Notification
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+env:
+  # SonarQube 접속 정보 (Secrets에 등록)
+  SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+  SONAR_TOKEN:    ${{ secrets.SONAR_TOKEN }}
+  # Slack Incoming Webhook URL (Secrets에 등록)
+  SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+  # SonarQube 프로젝트 키 (리포지토리마다 고유하게 설정)
+  SONAR_PROJECT_KEY: Sonar-slack-test
+
+jobs:
+  sonar:
+    name: 🔍 Build & SonarQube Analysis
+    runs-on: ubuntu-latest
+    outputs:
+      gate_status: ${{ steps.quality_gate.outputs.status }}
+      coverage:    ${{ steps.metrics.outputs.coverage }}
+      bugs:        ${{ steps.metrics.outputs.bugs }}
+      smells:      ${{ steps.metrics.outputs.smells }}
+      dup:         ${{ steps.metrics.outputs.dup }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 11
+        uses: actions/setup-java@v3
+        with:
+          distribution: temurin
+          java-version: '11'
+
+      - name: Cache Sonar Scanner files
+        uses: actions/cache@v3
+        with:
+          path: ~/.sonar/cache
+          key: ${{ runner.os }}-sonar
+
+      - name: Build with Maven & Run SonarQube Scanner
+        run: mvn clean verify sonar:sonar \
+               -Dsonar.projectKey=${{ env.SONAR_PROJECT_KEY }} \
+               -Dsonar.host.url=${{ env.SONAR_HOST_URL }} \
+               -Dsonar.login=${{ env.SONAR_TOKEN }}
+
+      - name: Get Quality Gate Status
+        id: quality_gate
+        run: |
+          # report-task.txt 에서 CE task URL 꺼내기
+          TASK_URL=$(grep -oP 'ceTaskUrl=\K.*' ~/.sonar/cache/report-task.txt)
+          TASK_ID=${TASK_URL##*=}
+          # Quality Gate 상태 조회
+          STATUS=$(curl -s -u "${{ env.SONAR_TOKEN }}:" \
+            "${{ env.SONAR_HOST_URL }}/api/qualitygates/project_status?taskId=$TASK_ID" \
+            | jq -r .projectStatus.status)
+          echo "status=$STATUS" >> $GITHUB_OUTPUT
+
+      - name: Get Additional Sonar Metrics
+        id: metrics
+        run: |
+          METRICS="coverage,bugs,code_smells,duplicated_lines_density"
+          RESP=$(curl -s -u "${{ env.SONAR_TOKEN }}:" \
+            "${{ env.SONAR_HOST_URL }}/api/measures/component?component=${{ env.SONAR_PROJECT_KEY }}&metricKeys=$METRICS")
+          echo "coverage=$(echo $RESP | jq -r '.component.measures[] | select(.metric=="coverage").value')" >> $GITHUB_OUTPUT
+          echo "bugs=$(echo $RESP | jq -r '.component.measures[] | select(.metric=="bugs").value')" >> $GITHUB_OUTPUT
+          echo "smells=$(echo $RESP | jq -r '.component.measures[] | select(.metric=="code_smells").value')" >> $GITHUB_OUTPUT
+          echo "dup=$(echo $RESP | jq -r '.component.measures[] | select(.metric=="duplicated_lines_density").value')" >> $GITHUB_OUTPUT
+
+  notify:
+    name: 📣 Send Slack Report
+    needs: sonar
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Build Slack Payload
+        id: payload
+        run: |
+          GATE=${{ needs.sonar.outputs.gate_status }}
+          COVER=${{ needs.sonar.outputs.coverage }}
+          BUGS=${{ needs.sonar.outputs.bugs }}
+          SMELLS=${{ needs.sonar.outputs.smells }}
+          DUP=${{ needs.sonar.outputs.dup }}
+          COLOR="#36a64f"
+          [ "$GATE" != "OK" ] && COLOR="#ff0000"
+          cat > payload.json <<EOF
+          {
+            "attachments": [
+              {
+                "color": "${COLOR}",
+                "title": "SonarQube Report • ${{ env.SONAR_PROJECT_KEY }}",
+                "fields": [
+                  { "title": "Gate Status",       "value": "${GATE}",   "short": true },
+                  { "title": "Coverage (%)",      "value": "${COVER}",  "short": true },
+                  { "title": "Bugs",              "value": "${BUGS}",   "short": true },
+                  { "title": "Code Smells",       "value": "${SMELLS}", "short": true },
+                  { "title": "Duplicated (%)",    "value": "${DUP}",    "short": true },
+                  { "title": "Workflow Run URL",  "value": "${{ github.run_url }}", "short": false }
+                ],
+                "ts": $(date +%s)
+              }
+            ]
+          }
+          EOF
+          echo "::set-output name=body::$(jq -c . payload.json)"
+
+      - name: Send to Slack
+        run: |
+          curl -X POST "${{ env.SLACK_WEBHOOK_URL }}" \
+            -H 'Content-Type: application/json' \
+            --data "${{ steps.payload.outputs.body }}"

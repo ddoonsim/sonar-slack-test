@@ -53,7 +53,7 @@ jobs:
             -Dsonar.projectKey=${{ env.SONAR_PROJECT_KEY }} \
             -Dsonar.host.url=${{ env.SONAR_HOST_URL }} \
             -Dsonar.login=${{ env.SONAR_TOKEN }}
-            -Dmaven.toolchains.skip=true \
+            -Dtoolchains.skip=true \
             -Drat.skip=true
 
       - name: Get Quality Gate Status

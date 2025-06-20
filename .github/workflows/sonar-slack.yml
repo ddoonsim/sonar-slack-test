@@ -47,7 +47,8 @@ jobs:
           ./mvnw clean verify sonar:sonar \
             -Dsonar.projectKey=${{ env.SONAR_PROJECT_KEY }} \
             -Dsonar.host.url=${{ env.SONAR_HOST_URL }} \
-            -Dsonar.login=${{ env.SONAR_TOKEN }}
+            -Dsonar.login=${{ env.SONAR_TOKEN }} \
+            -Dmaven.toolchains.skip=true
 
       - name: Get Quality Gate Status
         id: quality_gate

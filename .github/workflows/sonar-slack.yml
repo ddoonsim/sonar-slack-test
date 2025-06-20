@@ -16,6 +16,13 @@ env:
   SONAR_PROJECT_KEY: Sonar-slack-test
 
 jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        java: [8, 11, 17, 21]
+      fail-fast: false
   sonar:
     name: 🔍 Build & SonarQube Analysis
     runs-on: ubuntu-latest

@@ -51,10 +51,11 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-maven-
 
-      - name: Build with Maven (skip RAT)
+      - name: Build with Maven (skip RAT & Toolchains)
         run: |
           chmod +x mvnw
           ./mvnw clean verify \
+            -Dtoolchains.skip=true \
             -Drat.skip=true
 
   sonar:

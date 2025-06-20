@@ -93,7 +93,7 @@ jobs:
       - name: Get Quality Gate Status
         id: quality_gate
         run: |
-          TASK_URL=$(grep -oP 'ceTaskUrl=\K.*' ~/.sonar/cache/report-task.txt)
+          TASK_URL=$(grep -oP 'ceTaskUrl=\K.*' target/sonar/report-task.txt)
           TASK_ID=${TASK_URL##*=}
           STATUS=$(curl -s -u "${{ env.SONAR_TOKEN }}:" \
             "${{ env.SONAR_HOST_URL }}/api/qualitygates/project_status?taskId=$TASK_ID" \

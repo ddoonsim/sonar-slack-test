@@ -2,9 +2,9 @@ name: SonarQube Analysis & Slack Notification
 
 on:
   push:
-    branches: [ main ]
+    branches: [ master ]
   pull_request:
-    branches: [ main ]
+    branches: [ master ]
 
 env:
   # SonarQube 접속 정보 (Secrets에 등록)

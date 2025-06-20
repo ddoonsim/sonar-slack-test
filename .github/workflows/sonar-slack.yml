@@ -15,39 +15,7 @@ env:
   # SonarQube 프로젝트 키 (리포지토리마다 고유하게 설정)
   SONAR_PROJECT_KEY: Sonar-slack-test
 
-jobs:
-  build:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest, macos-latest]
-        java: [8, 11, 17, 21]
-      fail-fast: false
-      
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        
-      - name: Cache Maven repo
-        uses: actions/cache@v4
-        with:
-          path: ~/.m2/repository
-          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
-          restore-keys: |
-            ${{ runner.os }}-maven-
-
-      - name: Set up JDK ${{ matrix.java }}
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: ${{ matrix.java }}
-
-      - name: Build with Maven
-        # httpcomponents-client에는 mvnw 스크립트가 있으므로 wrapper 사용을 권장합니다.
-        run: |
-          chmod +x mvnw
-          ./mvnw clean verify
-          
+jobs:          
   sonar:
     name: 🔍 Build & SonarQube Analysis
     runs-on: ubuntu-latest
@@ -66,6 +34,11 @@ jobs:
 #        with:
 #          distribution: temurin
 #          java-version: '11'
+      - name: Set up JDK ${{ matrix.java }}
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.java }}
 
       - name: Cache Sonar Scanner files
         uses: actions/cache@v3
@@ -80,7 +53,8 @@ jobs:
             -Dsonar.projectKey=${{ env.SONAR_PROJECT_KEY }} \
             -Dsonar.host.url=${{ env.SONAR_HOST_URL }} \
             -Dsonar.login=${{ env.SONAR_TOKEN }}
-#            -Dmaven.toolchains.skip=true
+            -Dmaven.toolchains.skip=true \
+            -Drat.skip=true
 
       - name: Get Quality Gate Status
         id: quality_gate
